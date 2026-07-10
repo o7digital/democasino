@@ -291,22 +291,36 @@ function Imports({ canImport, showToast, refresh }: { canImport: boolean; showTo
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [results, setResults] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const upload = async (files: FileList | File[]) => {
+    const fileList = Array.from(files);
+    if (!fileList.length) return;
     if (!canImport) {
       showToast("Permiso insuficiente");
       return;
     }
+    setSelectedFiles(fileList.map((file) => file.name));
+    setUploading(true);
+    setResults([]);
     const form = new FormData();
-    Array.from(files).forEach((file) => form.append("files", file));
-    const response = await fetch("/api/import", { method: "POST", body: form });
-    const json = await response.json();
-    if (!response.ok) {
-      showToast(json.error || "Error de importacion");
-      return;
+    fileList.forEach((file) => form.append("files", file));
+    try {
+      const response = await fetch("/api/import", { method: "POST", body: form });
+      const json = await response.json();
+      if (!response.ok) {
+        showToast(json.error || "Error de importacion");
+        return;
+      }
+      setResults(json);
+      showToast(json.some((row: any) => row.duplicate) ? "Archivos ya importados" : "Importacion procesada");
+      refresh();
+    } catch {
+      showToast("Error de conexion durante la importacion");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
-    setResults(json);
-    showToast("Importacion procesada");
-    refresh();
   };
   return (
     <div className="grid layout-main">
@@ -314,12 +328,13 @@ function Imports({ canImport, showToast, refresh }: { canImport: boolean; showTo
         <div className={`import-zone ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); upload(e.dataTransfer.files); }}>
           <div className="import-icon"><Upload /></div>
           <h3>Arrastra aqui los archivos Excel</h3>
-          <p>{canImport ? "Reporte Mensual.xlsx o archivos diarios por sala" : "Permiso requerido: ADMIN"}</p>
-          <button className="action primary" disabled={!canImport} onClick={() => inputRef.current?.click()}>Seleccionar archivos</button>
+          <p>{uploading ? "Importacion en curso..." : canImport ? "Reporte Mensual.xlsx o archivos diarios por sala" : "Permiso requerido: ADMIN"}</p>
+          {selectedFiles.length ? <div className="file-list">{selectedFiles.map((name) => <span key={name}>{name}</span>)}</div> : null}
+          <button className="action primary" disabled={!canImport || uploading} onClick={() => inputRef.current?.click()}>{uploading ? "Procesando..." : "Seleccionar archivos"}</button>
           <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple hidden disabled={!canImport} onChange={(e) => e.target.files && upload(e.target.files)} />
         </div>
       </div>
-      <div className="card panel"><PanelHead title="Resultado de validacion" subtitle="Resumen del ultimo lote" /><div className="alert-stack">{results.length ? results.map((r) => <div className={`alert-box ${r.errors ? "red" : r.warnings ? "amber" : "green"}`} key={r.filename}><div className="alert-ico">{r.duplicate ? "D" : r.errors ? "!" : "✓"}</div><div className="alert-copy"><strong>{r.filename}</strong><span>{r.type} · {r.validRows}/{r.rows} validas · {r.warnings} advertencias</span></div></div>) : <div className="alert-box green"><div className="alert-ico">✓</div><div className="alert-copy"><strong>Listo para importar</strong><span>Hash SHA-256, deteccion de tipo y validacion por fila.</span></div></div>}</div></div>
+      <div className="card panel"><PanelHead title="Resultado de validacion" subtitle="Resumen del ultimo lote" /><div className="alert-stack">{uploading ? <div className="alert-box amber"><div className="alert-ico">...</div><div className="alert-copy"><strong>Procesando importacion</strong><span>Validando archivos y recalculando KPIs.</span></div></div> : results.length ? results.map((r) => <div className={`alert-box ${r.errors ? "red" : r.warnings || r.duplicate ? "amber" : "green"}`} key={r.filename}><div className="alert-ico">{r.duplicate ? "D" : r.errors ? "!" : "✓"}</div><div className="alert-copy"><strong>{r.duplicate ? `${r.filename} · duplicado` : `${r.filename} · OK`}</strong><span>{r.type} · {r.validRows}/{r.rows} validas · {r.warnings} advertencias</span></div></div>) : <div className="alert-box green"><div className="alert-ico">✓</div><div className="alert-copy"><strong>Listo para importar</strong><span>Selecciona archivos para iniciar la importacion.</span></div></div>}</div></div>
     </div>
   );
 }
