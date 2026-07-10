@@ -62,6 +62,8 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
     setToast(message);
     window.setTimeout(() => setToast(""), 2400);
   };
+  const canImportFiles = user.role === "ADMIN";
+  const canExportReports = ["ADMIN", "EXECUTIVE", "OPERATIONS"].includes(user.role);
 
   if (!data) {
     return <div className="login-page"><div className="login-card">Cargando datos...</div></div>;
@@ -104,8 +106,17 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
           </div>
           <div className="top-actions">
             <button className="pill">● Datos al dia</button>
-            <button className="action" onClick={() => setActive("imports")}><Upload size={16} /><span>Importar Excel</span></button>
-            <a className="action primary" href={pdfUrl(filters)}><FileDown size={16} /><span>Exportar PDF</span></a>
+            <button className="action" disabled={!canImportFiles} onClick={() => setActive("imports")} title={!canImportFiles ? "Requiere rol ADMIN" : undefined}><Upload size={16} /><span>Importar Excel</span></button>
+            <a
+              className={`action primary ${canExportReports ? "" : "disabled"}`}
+              href={canExportReports ? pdfUrl(filters) : undefined}
+              onClick={(event) => {
+                if (!canExportReports) {
+                  event.preventDefault();
+                  showToast("Permiso insuficiente");
+                }
+              }}
+            ><FileDown size={16} /><span>Exportar PDF</span></a>
             <UserButton
               fallbackRedirectUrl="/login"
               appearance={{ elements: { avatarBox: "clerk-avatar" } }}
@@ -120,7 +131,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
           {active === "providers" ? <Providers data={data} /> : null}
           {active === "casinos" ? <Casinos data={data} /> : null}
           {active === "daily" ? <Daily data={data} filters={filters} setFilters={setFilters} /> : null}
-          {active === "imports" ? <Imports showToast={showToast} refresh={() => setFilters((f) => ({ ...f }))} /> : null}
+          {active === "imports" ? <Imports canImport={canImportFiles} showToast={showToast} refresh={() => setFilters((f) => ({ ...f }))} /> : null}
           {active === "settings" ? <SettingsPanel data={data} /> : null}
           <div className="page-foot"><span>Keptos · Casino Analytics</span><span>Usuario: {user.name} · {user.role}</span></div>
         </main>
@@ -276,11 +287,15 @@ function Daily({ data, filters, setFilters }: { data: Analytics; filters: Record
   );
 }
 
-function Imports({ showToast, refresh }: { showToast: (message: string) => void; refresh: () => void }) {
+function Imports({ canImport, showToast, refresh }: { canImport: boolean; showToast: (message: string) => void; refresh: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const upload = async (files: FileList | File[]) => {
+    if (!canImport) {
+      showToast("Permiso insuficiente");
+      return;
+    }
     const form = new FormData();
     Array.from(files).forEach((file) => form.append("files", file));
     const response = await fetch("/api/import", { method: "POST", body: form });
@@ -299,9 +314,9 @@ function Imports({ showToast, refresh }: { showToast: (message: string) => void;
         <div className={`import-zone ${dragging ? "dragging" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(e) => { e.preventDefault(); setDragging(false); upload(e.dataTransfer.files); }}>
           <div className="import-icon"><Upload /></div>
           <h3>Arrastra aqui los archivos Excel</h3>
-          <p>Reporte Mensual.xlsx o archivos diarios por sala</p>
-          <button className="action primary" onClick={() => inputRef.current?.click()}>Seleccionar archivos</button>
-          <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple hidden onChange={(e) => e.target.files && upload(e.target.files)} />
+          <p>{canImport ? "Reporte Mensual.xlsx o archivos diarios por sala" : "Permiso requerido: ADMIN"}</p>
+          <button className="action primary" disabled={!canImport} onClick={() => inputRef.current?.click()}>Seleccionar archivos</button>
+          <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple hidden disabled={!canImport} onChange={(e) => e.target.files && upload(e.target.files)} />
         </div>
       </div>
       <div className="card panel"><PanelHead title="Resultado de validacion" subtitle="Resumen del ultimo lote" /><div className="alert-stack">{results.length ? results.map((r) => <div className={`alert-box ${r.errors ? "red" : r.warnings ? "amber" : "green"}`} key={r.filename}><div className="alert-ico">{r.duplicate ? "D" : r.errors ? "!" : "✓"}</div><div className="alert-copy"><strong>{r.filename}</strong><span>{r.type} · {r.validRows}/{r.rows} validas · {r.warnings} advertencias</span></div></div>) : <div className="alert-box green"><div className="alert-ico">✓</div><div className="alert-copy"><strong>Listo para importar</strong><span>Hash SHA-256, deteccion de tipo y validacion por fila.</span></div></div>}</div></div>

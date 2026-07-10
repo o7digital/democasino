@@ -24,9 +24,9 @@ export async function currentUser(): Promise<AppUser | null> {
   if (!user) return null;
 
   const metadata = user.publicMetadata as Record<string, unknown>;
-  const role = roles.has(metadata.role as Role) ? (metadata.role as Role) : "READ_ONLY";
   const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
   if (!email) return null;
+  const role = resolveRole(metadata.role, email);
 
   return {
     id: user.id,
@@ -36,6 +36,11 @@ export async function currentUser(): Promise<AppUser | null> {
     casinoIds: stringArray(metadata.casinoIds),
     casinoCodes: stringArray(metadata.casinoCodes)
   };
+}
+
+export function resolveRole(metadataRole: unknown, email: string): Role {
+  if (isAdminEmail(email)) return "ADMIN";
+  return roles.has(metadataRole as Role) ? (metadataRole as Role) : "READ_ONLY";
 }
 
 export async function ensureImportActor(user: AppUser) {
@@ -67,4 +72,15 @@ export function canExportTerminals(role: Role) {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function isAdminEmail(email: string) {
+  const adminEmails = [
+    process.env.DEFAULT_ADMIN_EMAIL,
+    ...(process.env.ADMIN_EMAILS ?? "").split(",")
+  ]
+    .map((value) => value?.trim().toLowerCase())
+    .filter(Boolean);
+
+  return adminEmails.includes(email.trim().toLowerCase());
 }

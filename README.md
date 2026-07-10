@@ -23,6 +23,8 @@ Ver `.env.example`.
 - `CLERK_SECRET_KEY`: clave privada Clerk; nunca debe versionarse ni exponerse al cliente.
 - `NEXT_PUBLIC_CLERK_SIGN_IN_URL`: ruta de acceso, `/login`.
 - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`: destino posterior al acceso, `/`.
+- `DEFAULT_ADMIN_EMAIL`: email que siempre recibe rol `ADMIN`.
+- `ADMIN_EMAILS`: lista opcional de emails admin separados por coma.
 
 ## Roles Clerk
 
@@ -37,6 +39,8 @@ Roles disponibles: `ADMIN`, `EXECUTIVE`, `CASINO_MANAGER`, `OPERATIONS` y `READ_
 ```json
 { "role": "CASINO_MANAGER", "casinoCodes": ["130"] }
 ```
+
+Tambien se puede conceder `ADMIN` sin editar Clerk si el email coincide con `DEFAULT_ADMIN_EMAIL` o con una entrada de `ADMIN_EMAILS`.
 
 ## Archivos reales
 
