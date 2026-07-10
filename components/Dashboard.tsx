@@ -2,13 +2,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import {
   AlertTriangle,
   BarChart3,
   Download,
   FileDown,
   Filter,
-  LogOut,
   Search,
   Settings,
   Upload,
@@ -71,9 +71,8 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="brand">
-          <div className="brand-mark">K</div>
+          <img className="keptos-logo" src="/keptos-logo.webp" alt="Keptos IT Services" />
           <div>
-            <h1>Keptos Analytics</h1>
             <span>Casino Performance Center</span>
           </div>
         </div>
@@ -107,8 +106,10 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
             <button className="pill">● Datos al dia</button>
             <button className="action" onClick={() => setActive("imports")}><Upload size={16} /><span>Importar Excel</span></button>
             <a className="action primary" href={pdfUrl(filters)}><FileDown size={16} /><span>Exportar PDF</span></a>
-            <button className="icon-button" title="Cerrar sesion" onClick={logout}><LogOut size={16} /></button>
-            <div className="avatar">{initials(user.name)}</div>
+            <UserButton
+              fallbackRedirectUrl="/login"
+              appearance={{ elements: { avatarBox: "clerk-avatar" } }}
+            />
           </div>
         </header>
         <main>
@@ -178,11 +179,11 @@ function Executive({ data }: { data: Analytics }) {
       <div className="grid layout-main">
         <div className="card panel">
           <PanelHead title="Coin In vs NetWin por casino" subtitle="Volumen apostado y rendimiento neto" />
-          <div className="chart-box"><ResponsiveContainer><BarChart data={data.byCasino}><CartesianGrid strokeDasharray="3 3" stroke="#e8eef4" /><XAxis dataKey="name" /><YAxis tickFormatter={compactMoney} /><Tooltip formatter={(v: number) => money(v)} /><Bar dataKey="coinIn" fill="#1267d6" name="Coin In" /><Bar dataKey="netWin" fill="#5bd0ff" name="NetWin" /></BarChart></ResponsiveContainer></div>
+          <div className="chart-box"><ResponsiveContainer><BarChart data={data.byCasino}><CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" /><XAxis dataKey="name" /><YAxis tickFormatter={compactMoney} /><Tooltip formatter={(v: number) => money(v)} /><Bar dataKey="coinIn" fill="#c00021" name="Coin In" /><Bar dataKey="netWin" fill="#303030" name="NetWin" /></BarChart></ResponsiveContainer></div>
         </div>
         <div className="card panel">
           <PanelHead title="Distribucion del NetWin" subtitle="Participacion por sala" />
-          <div className="chart-box"><ResponsiveContainer><PieChart><Pie data={data.byCasino} dataKey="netWin" nameKey="name" outerRadius={96} label>{data.byCasino.map((_, i) => <Cell key={i} fill={i % 2 ? "#5bd0ff" : "#1267d6"} />)}</Pie><Tooltip formatter={(v: number) => money(v)} /></PieChart></ResponsiveContainer></div>
+          <div className="chart-box"><ResponsiveContainer><PieChart><Pie data={data.byCasino} dataKey="netWin" nameKey="name" outerRadius={96} label>{data.byCasino.map((_, i) => <Cell key={i} fill={i % 2 ? "#303030" : "#c00021"} />)}</Pie><Tooltip formatter={(v: number) => money(v)} /></PieChart></ResponsiveContainer></div>
         </div>
       </div>
       <div className="grid layout-3">
@@ -206,7 +207,7 @@ function Machines({ data }: { data: Analytics }) {
         <div className="card panel"><PanelHead title="Bottom 10 por NetWin" subtitle="Modelos a revisar" /><RankList rows={data.bottomModels} negative /></div>
       </div>
       <div className="grid layout-main">
-        <div className="card panel"><PanelHead title="Dispersion Coin In vs NetWin" subtitle="Cada punto representa un modelo" /><div className="chart-box"><ResponsiveContainer><ScatterChart><CartesianGrid stroke="#e8eef4" /><XAxis type="number" dataKey="x" name="Coin In" tickFormatter={compactMoney} /><YAxis type="number" dataKey="y" name="NetWin" tickFormatter={compactMoney} /><Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v: number) => money(v)} /><Scatter data={scatter} fill="#1267d6" /></ScatterChart></ResponsiveContainer></div></div>
+        <div className="card panel"><PanelHead title="Dispersion Coin In vs NetWin" subtitle="Cada punto representa un modelo" /><div className="chart-box"><ResponsiveContainer><ScatterChart><CartesianGrid stroke="#e5e5e5" /><XAxis type="number" dataKey="x" name="Coin In" tickFormatter={compactMoney} /><YAxis type="number" dataKey="y" name="NetWin" tickFormatter={compactMoney} /><Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v: number) => money(v)} /><Scatter data={scatter} fill="#c00021" /></ScatterChart></ResponsiveContainer></div></div>
         <div className="card panel"><PanelHead title="Distribucion de retencion" subtitle="Por rangos" /><RetentionBuckets data={data} /></div>
       </div>
     </>
@@ -345,7 +346,7 @@ function RetentionBuckets({ data }: { data: Analytics }) {
   const buckets = [
     ["0-3% · Bajo", data.topModels.concat(data.bottomModels).filter((r) => r.retention < 0.03).length, "#ef5350"],
     ["3-6% · Estandar", data.topModels.concat(data.bottomModels).filter((r) => r.retention >= 0.03 && r.retention < 0.06).length, "#f4a928"],
-    ["6-10% · Bueno", data.topModels.concat(data.bottomModels).filter((r) => r.retention >= 0.06 && r.retention < 0.1).length, "#1267d6"],
+    ["6-10% · Bueno", data.topModels.concat(data.bottomModels).filter((r) => r.retention >= 0.06 && r.retention < 0.1).length, "#c00021"],
     ["+10% · Excelente", data.topModels.concat(data.bottomModels).filter((r) => r.retention >= 0.1).length, "#13b981"]
   ] as const;
   const max = Math.max(...buckets.map(([, count]) => count), 1);
@@ -378,13 +379,4 @@ function pdfUrl(filters: Record<string, string>) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
   return `/api/reports/executive/pdf?${params.toString()}`;
-}
-
-function initials(name: string) {
-  return name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-}
-
-async function logout() {
-  await fetch("/api/auth/logout", { method: "POST" });
-  window.location.href = "/login";
 }

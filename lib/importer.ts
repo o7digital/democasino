@@ -1,6 +1,5 @@
 import fs from "node:fs";
-import type { AlertRule, AlertSeverity, Prisma, Role } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import type { AlertRule, AlertSeverity, Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { parseExcelBuffer, parseExcelFile, type DailyParsedRow, type ParsedWorkbook } from "./parser";
 
@@ -115,14 +114,6 @@ export async function seedDefaults() {
     upsertCasino("204", "Coatzacoalcos")
   ]);
 
-  await upsertUser("admin@keptos.local", "Admin Keptos", "ADMIN", "admin123");
-  await upsertUser("direccion@keptos.local", "Direccion", "EXECUTIVE", "direccion123");
-  await upsertUser("villahermosa@keptos.local", "Gerente Villahermosa", "CASINO_MANAGER", "manager123", [
-    "130"
-  ]);
-  await upsertUser("operaciones@keptos.local", "Operaciones", "OPERATIONS", "ops123");
-  await upsertUser("lectura@keptos.local", "Solo lectura", "READ_ONLY", "readonly123");
-
   const rules: Array<Prisma.AlertRuleCreateInput> = [
     {
       code: "PAYOUT_GT_100",
@@ -200,33 +191,6 @@ async function upsertCasino(code: string, name: string) {
     where: { code },
     create: { code, name },
     update: { name }
-  });
-}
-
-async function upsertUser(
-  email: string,
-  name: string,
-  role: Role,
-  password: string,
-  casinoCodes: string[] = []
-) {
-  const casinos = casinoCodes.length
-    ? await prisma.casino.findMany({ where: { code: { in: casinoCodes } } })
-    : [];
-  return prisma.user.upsert({
-    where: { email },
-    create: {
-      email,
-      name,
-      role,
-      casinoIds: JSON.stringify(casinos.map((casino) => casino.id)),
-      passwordHash: await bcrypt.hash(password, 10)
-    },
-    update: {
-      name,
-      role,
-      casinoIds: JSON.stringify(casinos.map((casino) => casino.id))
-    }
   });
 }
 

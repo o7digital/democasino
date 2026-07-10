@@ -8,14 +8,20 @@ export type AnalyticsFilters = {
   area?: string;
   manufacturer?: string;
   search?: string;
-  user?: { role: Role; casinoIds: string[] } | null;
+  user?: { role: Role; casinoIds: string[]; casinoCodes: string[] } | null;
 };
 
 export async function getAnalytics(filters: AnalyticsFilters = {}) {
-  const accessCasinoIds =
-    filters.user?.role === "CASINO_MANAGER" && filters.user.casinoIds.length
-      ? filters.user.casinoIds
-      : undefined;
+  const isCasinoManager = filters.user?.role === "CASINO_MANAGER";
+  const casinosFromCodes = isCasinoManager && filters.user?.casinoCodes.length
+    ? await prisma.casino.findMany({
+        where: { code: { in: filters.user.casinoCodes } },
+        select: { id: true }
+      })
+    : [];
+  const accessCasinoIds = isCasinoManager
+    ? [...new Set([...(filters.user?.casinoIds ?? []), ...casinosFromCodes.map((casino) => casino.id)])]
+    : undefined;
 
   const periods = await prisma.monthlyMetric.findMany({
     select: { periodLabel: true, periodStart: true },
@@ -29,7 +35,7 @@ export async function getAnalytics(filters: AnalyticsFilters = {}) {
     ...(filters.casinoId ? { casinoId: filters.casinoId } : {}),
     ...(filters.area ? { area: filters.area } : {}),
     ...(filters.manufacturer ? { manufacturer: filters.manufacturer } : {}),
-    ...(accessCasinoIds ? { casinoId: { in: accessCasinoIds } } : {})
+    ...(accessCasinoIds !== undefined ? { casinoId: { in: accessCasinoIds } } : {})
   };
 
   const dailyWhere: Prisma.DailyTerminalMetricWhereInput = {
@@ -46,7 +52,7 @@ export async function getAnalytics(filters: AnalyticsFilters = {}) {
           ]
         }
       : {}),
-    ...(accessCasinoIds ? { casinoId: { in: accessCasinoIds } } : {})
+    ...(accessCasinoIds !== undefined ? { casinoId: { in: accessCasinoIds } } : {})
   };
 
   const [monthly, daily, casinos, imports, rules] = await Promise.all([
@@ -58,7 +64,7 @@ export async function getAnalytics(filters: AnalyticsFilters = {}) {
       take: 500
     }),
     prisma.casino.findMany({
-      where: accessCasinoIds ? { id: { in: accessCasinoIds } } : {},
+      where: accessCasinoIds !== undefined ? { id: { in: accessCasinoIds } } : {},
       orderBy: { name: "asc" }
     }),
     prisma.importBatch.findMany({ orderBy: { createdAt: "desc" }, take: 10, include: { casino: true } }),

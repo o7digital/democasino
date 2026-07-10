@@ -11,9 +11,7 @@ npm run db:seed
 npm run dev
 ```
 
-Abrir `http://localhost:3000`.
-
-Usuario demo: `admin@keptos.local` / `admin123`.
+Abrir `http://localhost:3000/login` y acceder con un usuario creado en Clerk.
 
 ## Variables de entorno
 
@@ -21,8 +19,24 @@ Ver `.env.example`.
 
 - `DATABASE_URL`: base local SQLite por defecto.
 - `APP_URL`: URL usada por Playwright para renderizar PDF.
-- `AUTH_SECRET`: secreto JWT de sesion.
-- `DEFAULT_ADMIN_EMAIL` y `DEFAULT_ADMIN_PASSWORD`: credenciales iniciales documentales.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: clave publica de la instancia Clerk.
+- `CLERK_SECRET_KEY`: clave privada Clerk; nunca debe versionarse ni exponerse al cliente.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL`: ruta de acceso, `/login`.
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`: destino posterior al acceso, `/`.
+
+## Roles Clerk
+
+Todo usuario nuevo recibe acceso `READ_ONLY`. Para conceder permisos, definir `publicMetadata` desde el dashboard Clerk:
+
+```json
+{ "role": "ADMIN" }
+```
+
+Roles disponibles: `ADMIN`, `EXECUTIVE`, `CASINO_MANAGER`, `OPERATIONS` y `READ_ONLY`. Para limitar un gerente a una sala, usar sus codigos:
+
+```json
+{ "role": "CASINO_MANAGER", "casinoCodes": ["130"] }
+```
 
 ## Archivos reales
 

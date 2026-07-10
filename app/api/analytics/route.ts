@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   const params = request.nextUrl.searchParams;
   const data = await getAnalytics({
     period: params.get("period") || undefined,
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     area: params.get("area") || undefined,
     manufacturer: params.get("manufacturer") || undefined,
     search: params.get("search") || undefined,
-    user: user ? { role: user.role, casinoIds: user.casinoIds } : null
+    user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
   });
   return NextResponse.json(data);
 }

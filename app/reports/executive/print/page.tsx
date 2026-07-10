@@ -1,17 +1,22 @@
 import { getAnalytics } from "@/lib/analytics";
+import { currentUser } from "@/lib/auth";
 import { compactMoney, money, pct } from "@/lib/numbers";
+import { redirect } from "next/navigation";
 
 export default async function ExecutivePrintPage({
   searchParams
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const user = await currentUser();
+  if (!user) redirect("/login");
   const params = await searchParams;
   const data = await getAnalytics({
     period: value(params.period),
     casinoId: value(params.casinoId),
     area: value(params.area),
-    manufacturer: value(params.manufacturer)
+    manufacturer: value(params.manufacturer),
+    user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
   });
   const generatedAt = new Date().toLocaleString("es-MX");
   return (
@@ -22,7 +27,7 @@ export default async function ExecutivePrintPage({
           <h2>Reporte Ejecutivo</h2>
           <p>Cliente: Keptos · Periodo: {data.overview.period} · Generado: {generatedAt}</p>
         </div>
-        <div className="brand-mark">K</div>
+        <img className="keptos-logo" src="/keptos-logo.webp" alt="Keptos IT Services" />
       </section>
       <div className="grid kpis">
         <Kpi label="NetWin total" value={compactMoney(data.overview.totalNetWin)} />

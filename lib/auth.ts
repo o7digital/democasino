@@ -1,63 +1,70 @@
-import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
+import type { Role } from "@prisma/client";
+import { currentUser as clerkCurrentUser } from "@clerk/nextjs/server";
 import { prisma } from "./db";
 
-const cookieName = "keptos_session";
-const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-secret");
+const roles = new Set<Role>([
+  "ADMIN",
+  "EXECUTIVE",
+  "CASINO_MANAGER",
+  "OPERATIONS",
+  "READ_ONLY"
+]);
 
-export async function login(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email } });
+export type AppUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  casinoIds: string[];
+  casinoCodes: string[];
+};
+
+export async function currentUser(): Promise<AppUser | null> {
+  const user = await clerkCurrentUser();
   if (!user) return null;
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return null;
 
-  const token = await new SignJWT({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    name: user.name,
-    casinoIds: JSON.parse(user.casinoIds || "[]")
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("8h")
-    .sign(secret);
+  const metadata = user.publicMetadata as Record<string, unknown>;
+  const role = roles.has(metadata.role as Role) ? (metadata.role as Role) : "READ_ONLY";
+  const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+  if (!email) return null;
 
-  (await cookies()).set(cookieName, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/"
+  return {
+    id: user.id,
+    email,
+    name: user.fullName || user.username || email,
+    role,
+    casinoIds: stringArray(metadata.casinoIds),
+    casinoCodes: stringArray(metadata.casinoCodes)
+  };
+}
+
+export async function ensureImportActor(user: AppUser) {
+  return prisma.user.upsert({
+    where: { email: user.email },
+    create: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      passwordHash: "",
+      role: user.role,
+      casinoIds: JSON.stringify(user.casinoIds)
+    },
+    update: {
+      name: user.name,
+      role: user.role,
+      casinoIds: JSON.stringify(user.casinoIds)
+    }
   });
-  return user;
 }
 
-export async function logout() {
-  (await cookies()).delete(cookieName);
-}
-
-export async function currentUser() {
-  const token = (await cookies()).get(cookieName)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secret);
-    return {
-      id: String(payload.sub),
-      email: String(payload.email),
-      name: String(payload.name),
-      role: payload.role as "ADMIN" | "EXECUTIVE" | "CASINO_MANAGER" | "OPERATIONS" | "READ_ONLY",
-      casinoIds: Array.isArray(payload.casinoIds) ? payload.casinoIds.map(String) : []
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function canImport(role: string) {
+export function canImport(role: Role) {
   return role === "ADMIN";
 }
 
-export function canExportTerminals(role: string) {
+export function canExportTerminals(role: Role) {
   return ["ADMIN", "EXECUTIVE", "OPERATIONS"].includes(role);
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }

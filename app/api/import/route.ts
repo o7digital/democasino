@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canImport, currentUser } from "@/lib/auth";
+import { canImport, currentUser, ensureImportActor } from "@/lib/auth";
 import { importExcelUpload } from "@/lib/importer";
 
 export async function POST(request: Request) {
@@ -13,9 +13,10 @@ export async function POST(request: Request) {
   const allowDuplicate = form.get("allowDuplicate") === "true";
   if (!files.length) return NextResponse.json({ error: "No se recibieron archivos" }, { status: 400 });
 
+  const actor = await ensureImportActor(user);
   const results = [];
   for (const file of files) {
-    results.push(await importExcelUpload(file, user.id, allowDuplicate));
+    results.push(await importExcelUpload(file, actor.id, allowDuplicate));
   }
 
   return NextResponse.json(

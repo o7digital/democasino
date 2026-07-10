@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     area: params.get("area") || undefined,
     manufacturer: params.get("manufacturer") || undefined,
     search: params.get("search") || undefined,
-    user: { role: user.role, casinoIds: user.casinoIds }
+    user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
   });
 
   const format = params.get("format") || "csv";

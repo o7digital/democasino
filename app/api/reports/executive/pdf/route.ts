@@ -10,7 +10,14 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.toString();
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1240, height: 1754 } });
+    const context = await browser.newContext({ viewport: { width: 1240, height: 1754 } });
+    const sessionCookies = request.cookies.getAll().map(({ name, value }) => ({
+      name,
+      value,
+      url: baseUrl
+    }));
+    if (sessionCookies.length) await context.addCookies(sessionCookies);
+    const page = await context.newPage();
     await page.goto(`${baseUrl}/reports/executive/print${query ? `?${query}` : ""}`, {
       waitUntil: "networkidle"
     });
