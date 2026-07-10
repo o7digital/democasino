@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EXECUTIVE
+  CASINO_MANAGER
+  OPERATIONS
+  READ_ONLY
+}
+
+enum ReportType {
+  MONTHLY
+  DAILY
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATED
+  IMPORTED
+  REJECTED
+  DUPLICATE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(READ_ONLY)
+  casinoIds    String   @default("[]")
+  createdAt    DateTime @default(now())
+  imports      ImportBatch[]
+}
+
+model Casino {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  imports   ImportBatch[]
+  monthly   MonthlyMetric[]
+  daily     DailyTerminalMetric[]
+  costs     CostConfig[]
+}
+
+model ImportBatch {
+  id            String       @id @default(cuid())
+  filename      String
+  sha256        String       @unique
+  reportType    ReportType
+  casinoId      String?
+  casino        Casino?      @relation(fields: [casinoId], references: [id])
+  periodLabel   String
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  importedById  String?
+  importedBy    User?        @relation(fields: [importedById], references: [id])
+  rowCount      Int
+  validRows     Int
+  rejectedRows  Int
+  warningsJson  String       @default("[]")
+  status        ImportStatus @default(IMPORTED)
+  createdAt     DateTime     @default(now())
+  monthly       MonthlyMetric[]
+  daily         DailyTerminalMetric[]
+}
+
+model MonthlyMetric {
+  id              String      @id @default(cuid())
+  importBatchId   String
+  importBatch     ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  casinoId        String
+  casino          Casino      @relation(fields: [casinoId], references: [id])
+  periodLabel     String
+  periodStart     DateTime
+  days            Int
+  model           String
+  manufacturer    String
+  area            String
+  units           Int
+  coinIn          Float
+  coinInAvg       Float
+  netWin          Float
+  netWinAvg       Float
+  retention       Float
+  previousCoinIn  Float?
+  plays           Int
+  playsAvg        Float
+  dailyCost       Float
+  profitPerDay    Float
+  createdAt       DateTime    @default(now())
+
+  @@index([periodLabel, casinoId])
+  @@index([manufacturer])
+  @@index([area])
+}
+
+model DailyTerminalMetric {
+  id                 String      @id @default(cuid())
+  importBatchId      String
+  importBatch        ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  casinoId           String
+  casino             Casino      @relation(fields: [casinoId], references: [id])
+  startedAt          DateTime
+  endedAt            DateTime
+  manufacturer       String
+  vendor             String?
+  terminalName       String
+  plantId            String
+  denomination       String?
+  location           String?
+  area               String
+  island             String?
+  position           String?
+  game               String
+  coinIn             Float
+  coinOutJackpots    Float
+  totalJackpot       Float
+  nonProgressive     Float
+  progressive        Float
+  provision          Float
+  payout             Float
+  theoreticalPayout  Float?
+  netWin             Float
+  netWinPct          Float
+  plays              Int
+  wins               Int
+  winPct             Float?
+  averageBet         Float
+  createdAt          DateTime    @default(now())
+  alerts             Alert[]
+
+  @@index([casinoId, startedAt])
+  @@index([manufacturer])
+  @@index([area])
+  @@index([plantId])
+}
+
+model AlertRule {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  label       String
+  enabled     Boolean       @default(true)
+  severity    AlertSeverity @default(WARNING)
+  threshold   Float?
+  minValue    Float?
+  maxValue    Float?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Alert {
+  id          String              @id @default(cuid())
+  ruleCode    String
+  label       String
+  severity    AlertSeverity
+  metricId    String
+  metric      DailyTerminalMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+  value       Float?
+  message     String
+  createdAt   DateTime            @default(now())
+
+  @@index([ruleCode])
+  @@index([severity])
+}
+
+model CostConfig {
+  id            String   @id @default(cuid())
+  casinoId      String
+  casino        Casino   @relation(fields: [casinoId], references: [id])
+  manufacturer  String?
+  model         String?
+  effectiveFrom DateTime
+  dailyCost     Float
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([casinoId, manufacturer, model])
+}
