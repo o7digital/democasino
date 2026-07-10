@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chromium } from "playwright";
+import serverlessChromium from "@sparticuz/chromium";
+import { chromium } from "playwright-core";
 import { currentUser } from "@/lib/auth";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   const user = await currentUser();
@@ -8,7 +12,11 @@ export async function GET(request: NextRequest) {
 
   const baseUrl = process.env.APP_URL || request.nextUrl.origin;
   const query = request.nextUrl.searchParams.toString();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    args: serverlessChromium.args,
+    executablePath: await getChromiumExecutablePath(),
+    headless: true
+  });
   try {
     const context = await browser.newContext({ viewport: { width: 1240, height: 1754 } });
     const sessionCookies = request.cookies.getAll().map(({ name, value }) => ({
@@ -40,4 +48,11 @@ export async function GET(request: NextRequest) {
   } finally {
     await browser.close();
   }
+}
+
+async function getChromiumExecutablePath() {
+  if (process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return serverlessChromium.executablePath();
+  }
+  return undefined;
 }
