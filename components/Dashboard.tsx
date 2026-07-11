@@ -130,6 +130,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
         <main>
           <Hero active={active} data={data} />
           {active !== "imports" && active !== "settings" ? <Filters data={data} filters={filters} setFilters={setFilters} /> : null}
+          {active !== "imports" && active !== "settings" ? <AiObservations data={data} active={active} /> : null}
           {active === "executive" ? <Executive data={data} /> : null}
           {active === "machines" ? <Machines data={data} filters={filters} onSelectModel={setSelectedModel} /> : null}
           {active === "providers" ? <Providers data={data} /> : null}
@@ -218,7 +219,6 @@ function Machines({ data, filters, onSelectModel }: { data: Analytics; filters: 
   const scatter = data.topModels.concat(data.bottomModels).map((row) => ({ x: row.coinIn, y: row.netWin, z: Math.max(row.units * 24, 80), name: row.model }));
   return (
     <>
-      <AiObservations data={data} />
       <div className="grid layout-equal">
         <div className="card panel"><PanelHead title="Top 10 por NetWin" subtitle="Modelos mensuales" /><RankList rows={data.topModels} onSelect={onSelectModel} /></div>
         <div className="card panel"><PanelHead title="Bottom 10 por NetWin" subtitle="Modelos a revisar" /><RankList rows={data.bottomModels} negative onSelect={onSelectModel} /></div>
@@ -364,10 +364,14 @@ function RankList({ rows, negative = false, onSelect }: { rows: Analytics["topMo
   })}</div>;
 }
 
-function AiObservations({ data }: { data: Analytics }) {
+function AiObservations({ data, active }: { data: Analytics; active: string }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState("");
+  useEffect(() => {
+    setResult(null);
+    setError("");
+  }, [active, data.overview.period]);
   const run = async () => {
     setLoading(true);
     setError("");
@@ -375,7 +379,7 @@ function AiObservations({ data }: { data: Analytics }) {
       const response = await fetch("/api/ai/observations", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ summary: aiSummary(data) })
+        body: JSON.stringify({ summary: aiSummary(data, active) })
       });
       const text = await response.text();
       const json = text ? JSON.parse(text) : null;
@@ -393,18 +397,26 @@ function AiObservations({ data }: { data: Analytics }) {
         <div>
           <div className="eyebrow">Hugging Face</div>
           <h3 className="panel-title">Observacion IA</h3>
-          <div className="panel-sub">Analisis automatico con los filtros actuales.</div>
+          <div className="panel-sub">Analisis automatico de esta pantalla con los filtros actuales.</div>
         </div>
         <button className="action primary" onClick={run} disabled={loading}><Brain size={16} />{loading ? "Analizando..." : "Analizar"}</button>
       </div>
       {error ? <div className="alert-box red"><div className="alert-ico">!</div><div className="alert-copy"><strong>Error de IA</strong><span>{error}</span></div></div> : null}
-      {result ? <><div className="ai-copy">{result.observation}</div>{result.source === "fallback" ? <div className="panel-sub">Hugging Face no respondio; observacion generada con reglas locales.</div> : null}</> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones ejecutivas, riesgos y acciones recomendadas.</div>}
+      {result ? <><div className="ai-copy">{result.observation}</div>{result.source === "fallback" ? <div className="panel-sub">Hugging Face no respondio; observacion generada con reglas locales.</div> : null}</> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones, riesgos y acciones recomendadas para esta vista.</div>}
     </div>
   );
 }
 
-function aiSummary(data: Analytics) {
+function aiSummary(data: Analytics, active: string) {
+  const pageLabels: Record<string, string> = {
+    executive: "Resumen ejecutivo",
+    machines: "Performance maquinas",
+    providers: "Analisis fabricantes",
+    casinos: "Comparativo casinos",
+    daily: "Operacion diaria"
+  };
   return {
+    page: pageLabels[active] ?? active,
     overview: {
       period: data.overview.period,
       activeMachines: data.overview.activeMachines,
@@ -437,6 +449,32 @@ function aiSummary(data: Analytics) {
       units: row.units,
       netWin: money(row.netWin),
       retention: pct(row.retention)
+    })),
+    byManufacturer: data.byManufacturer.slice(0, 12).map((row: any) => ({
+      name: row.name,
+      units: row.units,
+      coinIn: compactMoney(row.coinIn),
+      netWin: compactMoney(row.netWin),
+      retention: pct(row.retention),
+      netWinPerMachineDay: money(row.netWinPerMachineDay)
+    })),
+    byArea: data.byArea.map((row: any) => ({
+      name: row.name,
+      units: row.units,
+      netWin: compactMoney(row.netWin),
+      netWinPerMachineDay: money(row.netWinPerMachineDay),
+      retention: pct(row.retention)
+    })),
+    daily: data.daily.slice(0, 12).map((row: any) => ({
+      casino: row.casino.name,
+      plantId: row.plantId,
+      manufacturer: row.manufacturer,
+      model: row.terminalName,
+      area: row.area,
+      game: row.game,
+      netWin: money(row.netWin),
+      payout: pct(row.payout),
+      alert: row.alerts[0]?.label ?? "OK"
     }))
   };
 }

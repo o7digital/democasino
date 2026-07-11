@@ -7,6 +7,7 @@ export const maxDuration = 45;
 const MODEL = process.env.HUGGINGFACE_MODEL || "mistralai/Mistral-7B-Instruct-v0.3";
 
 type AiSummary = {
+  page?: string;
   overview: {
     period: string;
     activeMachines: number;
@@ -26,6 +27,9 @@ type AiSummary = {
   }>;
   topModels: Array<{ model: string; casino: string; area: string; units: number; netWin: string; retention: string }>;
   bottomModels: Array<{ model: string; casino: string; area: string; units: number; netWin: string; retention: string }>;
+  byManufacturer?: Array<{ name: string; units: number; coinIn: string; netWin: string; retention: string; netWinPerMachineDay: string }>;
+  byArea?: Array<{ name: string; units: number; netWin: string; netWinPerMachineDay: string; retention: string }>;
+  daily?: Array<{ casino: string; plantId: string; manufacturer: string; model: string; area: string; game: string; netWin: string; payout: string; alert: string }>;
 };
 
 export async function POST(request: NextRequest) {
@@ -103,11 +107,23 @@ function buildPrompt(data: AiSummary) {
     .slice(0, 5)
     .map((row, index) => `${index + 1}. ${row.model} (${row.casino}, ${row.area}, ${row.units} uds): ${row.netWin}, retencion ${row.retention}`)
     .join("\n");
+  const manufacturers = (data.byManufacturer ?? [])
+    .slice(0, 8)
+    .map((row, index) => `${index + 1}. ${row.name}: ${row.units} maquinas, NetWin ${row.netWin}, retencion ${row.retention}, NetWin/maq/dia ${row.netWinPerMachineDay}`)
+    .join("\n");
+  const areas = (data.byArea ?? [])
+    .map((row) => `${row.name}: ${row.units} maquinas, NetWin ${row.netWin}, NetWin/maq/dia ${row.netWinPerMachineDay}, retencion ${row.retention}`)
+    .join("\n");
+  const daily = (data.daily ?? [])
+    .slice(0, 8)
+    .map((row) => `${row.casino} ${row.plantId} ${row.manufacturer} ${row.game}: NetWin ${row.netWin}, payout ${row.payout}, alerta ${row.alert}`)
+    .join("\n");
 
   return `Eres analista senior de operaciones casino. Responde en espanol con tono ejecutivo, concreto y accionable.
+Pantalla analizada: ${data.page ?? "Dashboard"}.
 
 Genera:
-1. Observacion ejecutiva de 3-4 frases.
+1. Observacion especifica de esta pantalla en 3-4 frases.
 2. Riesgos operativos principales.
 3. Acciones recomendadas para la siguiente semana.
 
@@ -129,7 +145,16 @@ Top modelos:
 ${top}
 
 Modelos a revisar:
-${bottom}`;
+${bottom}
+
+Fabricantes:
+${manufacturers || "Sin detalle"}
+
+Areas:
+${areas || "Sin detalle"}
+
+Terminales con alertas visibles:
+${daily || "Sin detalle"}`;
 }
 
 function extractText(payload: unknown) {
@@ -154,7 +179,7 @@ function parseJson(text: string) {
 function fallbackObservation(data: AiSummary) {
   const leader = data.topModels[0];
   const risk = data.bottomModels[0];
-  return `Observacion ejecutiva: el periodo ${data.overview.period} concentra ${data.overview.totalNetWin} de NetWin con retencion de ${data.overview.retention} sobre ${data.overview.activeMachines} maquinas activas.
+  return `Observacion ${data.page ?? "ejecutiva"}: el periodo ${data.overview.period} concentra ${data.overview.totalNetWin} de NetWin con retencion de ${data.overview.retention} sobre ${data.overview.activeMachines} maquinas activas.
 
 Riesgos operativos: revisar ${data.alertSummary.NEGATIVE_NETWIN ?? 0} terminales con NetWin negativo y ${data.alertSummary.PAYOUT_GT_100 ?? 0} casos de payout superior a 100%. El modelo mas debil visible es ${risk?.model ?? "sin dato"}.
 
