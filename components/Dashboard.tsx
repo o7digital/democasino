@@ -6,13 +6,16 @@ import { UserButton } from "@clerk/nextjs";
 import {
   AlertTriangle,
   BarChart3,
+  Brain,
+  Clock,
   Download,
   FileDown,
   Filter,
   Search,
   Settings,
   Upload,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import {
   Bar,
@@ -47,6 +50,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<Analytics | null>(null);
   const [toast, setToast] = useState("");
+  const [selectedModel, setSelectedModel] = useState<any | null>(null);
   const [filters, setFilters] = useState({ period: "", casinoId: "", area: "", manufacturer: "", search: "" });
 
   useEffect(() => {
@@ -127,7 +131,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
           <Hero active={active} data={data} />
           {active !== "imports" && active !== "settings" ? <Filters data={data} filters={filters} setFilters={setFilters} /> : null}
           {active === "executive" ? <Executive data={data} /> : null}
-          {active === "machines" ? <Machines data={data} /> : null}
+          {active === "machines" ? <Machines data={data} filters={filters} onSelectModel={setSelectedModel} /> : null}
           {active === "providers" ? <Providers data={data} /> : null}
           {active === "casinos" ? <Casinos data={data} /> : null}
           {active === "daily" ? <Daily data={data} filters={filters} setFilters={setFilters} /> : null}
@@ -136,6 +140,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
           <div className="page-foot"><span>Keptos · Casino Analytics</span><span>Usuario: {user.name} · {user.role}</span></div>
         </main>
       </section>
+      {selectedModel ? <MachineDetailModal data={data} model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>
   );
@@ -209,13 +214,14 @@ function Executive({ data }: { data: Analytics }) {
   );
 }
 
-function Machines({ data }: { data: Analytics }) {
+function Machines({ data, filters, onSelectModel }: { data: Analytics; filters: Record<string, string>; onSelectModel: (row: any) => void }) {
   const scatter = data.topModels.concat(data.bottomModels).map((row) => ({ x: row.coinIn, y: row.netWin, z: Math.max(row.units * 24, 80), name: row.model }));
   return (
     <>
+      <AiObservations filters={filters} />
       <div className="grid layout-equal">
-        <div className="card panel"><PanelHead title="Top 10 por NetWin" subtitle="Modelos mensuales" /><RankList rows={data.topModels} /></div>
-        <div className="card panel"><PanelHead title="Bottom 10 por NetWin" subtitle="Modelos a revisar" /><RankList rows={data.bottomModels} negative /></div>
+        <div className="card panel"><PanelHead title="Top 10 por NetWin" subtitle="Modelos mensuales" /><RankList rows={data.topModels} onSelect={onSelectModel} /></div>
+        <div className="card panel"><PanelHead title="Bottom 10 por NetWin" subtitle="Modelos a revisar" /><RankList rows={data.bottomModels} negative onSelect={onSelectModel} /></div>
       </div>
       <div className="grid layout-main">
         <div className="card panel"><PanelHead title="Dispersion Coin In vs NetWin" subtitle="Cada punto representa un modelo" /><div className="chart-box"><ResponsiveContainer><ScatterChart><CartesianGrid stroke="#e5e5e5" /><XAxis type="number" dataKey="x" name="Coin In" tickFormatter={compactMoney} /><YAxis type="number" dataKey="y" name="NetWin" tickFormatter={compactMoney} /><Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v: number) => money(v)} /><Scatter data={scatter} fill="#c00021" /></ScatterChart></ResponsiveContainer></div></div>
@@ -351,8 +357,89 @@ function PanelHead({ title, subtitle }: { title: string; subtitle: string }) {
   return <div className="panel-head"><div><h3 className="panel-title">{title}</h3><div className="panel-sub">{subtitle}</div></div></div>;
 }
 
-function RankList({ rows, negative = false }: { rows: Analytics["topModels"]; negative?: boolean }) {
-  return <div className="rank-list">{rows.map((row, index) => <div className="rank" key={`${row.model}-${row.casinoId}-${index}`}><div className="rank-num">{index + 1}</div><div className="rank-name">{row.model}<span>{row.casino.name} · {row.area} · {row.units} uds.</span></div><div className={`rank-value ${negative || row.netWin < 0 ? "money neg" : ""}`}>{compactMoney(row.netWin)}<span>{pct(row.retention)}</span></div></div>)}</div>;
+function RankList({ rows, negative = false, onSelect }: { rows: Analytics["topModels"]; negative?: boolean; onSelect?: (row: any) => void }) {
+  return <div className="rank-list">{rows.map((row, index) => {
+    const name = <>{row.model}<span>{row.casino.name} · {row.area} · {row.units} uds.</span></>;
+    return <div className="rank" key={`${row.model}-${row.casinoId}-${index}`}><div className="rank-num">{index + 1}</div>{onSelect ? <button className="rank-name rank-button" onClick={() => onSelect(row)}>{name}</button> : <div className="rank-name">{name}</div>}<div className={`rank-value ${negative || row.netWin < 0 ? "money neg" : ""}`}>{compactMoney(row.netWin)}<span>{pct(row.retention)}</span></div></div>;
+  })}</div>;
+}
+
+function AiObservations({ filters }: { filters: Record<string, string> }) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any | null>(null);
+  const [error, setError] = useState("");
+  const run = async () => {
+    setLoading(true);
+    setError("");
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    try {
+      const response = await fetch(`/api/ai/observations?${params.toString()}`);
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Error IA");
+      setResult(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error IA");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="card panel ai-panel">
+      <div className="ai-head">
+        <div>
+          <div className="eyebrow">Hugging Face</div>
+          <h3 className="panel-title">Observacion IA</h3>
+          <div className="panel-sub">Analisis automatico con los filtros actuales.</div>
+        </div>
+        <button className="action primary" onClick={run} disabled={loading}><Brain size={16} />{loading ? "Analizando..." : "Analizar"}</button>
+      </div>
+      {error ? <div className="alert-box red"><div className="alert-ico">!</div><div className="alert-copy"><strong>Error de IA</strong><span>{error}</span></div></div> : null}
+      {result ? <div className="ai-copy">{result.observation}</div> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones ejecutivas, riesgos y acciones recomendadas.</div>}
+    </div>
+  );
+}
+
+function MachineDetailModal({ data, model, onClose }: { data: Analytics; model: any; onClose: () => void }) {
+  const rows = data.daily.filter((row: any) =>
+    row.terminalName === model.model &&
+    row.casinoId === model.casinoId &&
+    (!model.area || row.area === model.area)
+  );
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <section className="modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <div className="eyebrow">Detalle maquina</div>
+            <h3>{model.model}</h3>
+            <p>{model.casino.name} · {model.area} · {model.manufacturer}</p>
+          </div>
+          <button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+        <div className="grid kpis modal-kpis">
+          <Kpi label="Unidades" value={String(model.units)} meta="Instaladas" />
+          <Kpi label="NetWin" value={compactMoney(model.netWin)} meta={pct(model.retention)} />
+          <Kpi label="Coin In" value={compactMoney(model.coinIn)} meta={`${model.days} dias`} />
+          <Kpi label="Jugadas" value={model.plays.toLocaleString("es-MX")} meta="Periodo mensual" />
+        </div>
+        <div className="detail-strip">
+          <span><Clock size={14} /> Periodo diario: {rows[0] ? `${dateLabel(rows[0].startedAt)} - ${dateLabel(rows[0].endedAt)}` : "Sin detalle diario importado"}</span>
+          <span>{rows.length} terminales encontradas</span>
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead><tr><th>ID planta</th><th>Juego instalado</th><th>Isla</th><th>Posicion</th><th>Desde</th><th>Hasta</th><th>Coin In</th><th>NetWin</th><th>Payout</th><th>Jugadas</th><th>Alerta</th></tr></thead>
+            <tbody>{rows.map((row: any) => <tr key={row.id}><td className="model">{row.plantId}</td><td>{row.game}</td><td>{row.island ?? "-"}</td><td>{row.position ?? "-"}</td><td>{dateLabel(row.startedAt)}</td><td>{dateLabel(row.endedAt)}</td><td>{money(row.coinIn)}</td><td className={row.netWin < 0 ? "money neg" : "money pos"}>{money(row.netWin)}</td><td>{pct(row.payout)}</td><td>{row.plays.toLocaleString("es-MX")}</td><td>{row.alerts[0]?.label ?? "OK"}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function dateLabel(value: string | Date) {
+  return new Date(value).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function Hbars({ rows }: { rows: { label: string; value: string; width: number }[] }) {
