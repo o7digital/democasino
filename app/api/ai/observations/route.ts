@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
-import { getAnalytics } from "@/lib/analytics";
-import { compactMoney, money, pct } from "@/lib/numbers";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
 
 const MODEL = process.env.HUGGINGFACE_MODEL || "mistralai/Mistral-7B-Instruct-v0.3";
 
-export async function GET(request: NextRequest) {
+type AiSummary = {
+  overview: {
+    period: string;
+    activeMachines: number;
+    totalCoinIn: string;
+    totalNetWin: string;
+    retention: string;
+    profitPerDay: string;
+  };
+  alertSummary: Record<string, number>;
+  byCasino: Array<{
+    name: string;
+    units: number;
+    coinIn: string;
+    netWin: string;
+    retention: string;
+    netWinPerMachineDay: string;
+  }>;
+  topModels: Array<{ model: string; casino: string; area: string; units: number; netWin: string; retention: string }>;
+  bottomModels: Array<{ model: string; casino: string; area: string; units: number; netWin: string; retention: string }>;
+};
+
+export async function POST(request: NextRequest) {
   try {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -18,17 +38,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta HUGGINGFACE_API_TOKEN en variables de entorno" }, { status: 500 });
     }
 
-    const params = request.nextUrl.searchParams;
-    const data = await getAnalytics({
-      period: params.get("period") || undefined,
-      casinoId: params.get("casinoId") || undefined,
-      area: params.get("area") || undefined,
-      manufacturer: params.get("manufacturer") || undefined,
-      search: params.get("search") || undefined,
-      user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
-    });
+    const body = await request.json().catch(() => null);
+    const summary = body?.summary as AiSummary | undefined;
+    if (!summary?.overview) {
+      return NextResponse.json({ error: "Falta resumen de datos para analizar" }, { status: 400 });
+    }
 
-    const prompt = buildPrompt(data);
+    const prompt = buildPrompt(summary);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 35_000);
     const response = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
@@ -62,7 +78,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       model: MODEL,
       generatedAt: new Date().toISOString(),
-      observation: observation || fallbackObservation(data)
+      observation: observation || fallbackObservation(summary)
     });
   } catch (error) {
     return NextResponse.json(
@@ -72,17 +88,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function buildPrompt(data: Awaited<ReturnType<typeof getAnalytics>>) {
+function buildPrompt(data: AiSummary) {
   const casinos = data.byCasino
-    .map((row) => `${row.name}: ${row.units} maquinas, Coin In ${money(row.coinIn)}, NetWin ${money(row.netWin)}, retencion ${pct(row.retention)}, NetWin/maq/dia ${money(row.netWinPerMachineDay)}`)
+    .map((row) => `${row.name}: ${row.units} maquinas, Coin In ${row.coinIn}, NetWin ${row.netWin}, retencion ${row.retention}, NetWin/maq/dia ${row.netWinPerMachineDay}`)
     .join("\n");
   const top = data.topModels
     .slice(0, 5)
-    .map((row, index) => `${index + 1}. ${row.model} (${row.casino.name}, ${row.area}, ${row.units} uds): ${money(row.netWin)}, retencion ${pct(row.retention)}`)
+    .map((row, index) => `${index + 1}. ${row.model} (${row.casino}, ${row.area}, ${row.units} uds): ${row.netWin}, retencion ${row.retention}`)
     .join("\n");
   const bottom = data.bottomModels
     .slice(0, 5)
-    .map((row, index) => `${index + 1}. ${row.model} (${row.casino.name}, ${row.area}, ${row.units} uds): ${money(row.netWin)}, retencion ${pct(row.retention)}`)
+    .map((row, index) => `${index + 1}. ${row.model} (${row.casino}, ${row.area}, ${row.units} uds): ${row.netWin}, retencion ${row.retention}`)
     .join("\n");
 
   return `Eres analista senior de operaciones casino. Responde en espanol con tono ejecutivo, concreto y accionable.
@@ -95,10 +111,10 @@ Genera:
 Datos:
 Periodo: ${data.overview.period}
 Maquinas activas: ${data.overview.activeMachines}
-Coin In total: ${compactMoney(data.overview.totalCoinIn)}
-NetWin total: ${compactMoney(data.overview.totalNetWin)}
-Retencion ponderada: ${pct(data.overview.retention)}
-Ganancia por dia: ${compactMoney(data.overview.profitPerDay)}
+Coin In total: ${data.overview.totalCoinIn}
+NetWin total: ${data.overview.totalNetWin}
+Retencion ponderada: ${data.overview.retention}
+Ganancia por dia: ${data.overview.profitPerDay}
 Payout > 100%: ${data.alertSummary.PAYOUT_GT_100 ?? 0}
 NetWin negativo: ${data.alertSummary.NEGATIVE_NETWIN ?? 0}
 Terminales OK: ${data.alertSummary.OK ?? 0}
@@ -132,10 +148,10 @@ function parseJson(text: string) {
   }
 }
 
-function fallbackObservation(data: Awaited<ReturnType<typeof getAnalytics>>) {
+function fallbackObservation(data: AiSummary) {
   const leader = data.topModels[0];
   const risk = data.bottomModels[0];
-  return `Observacion ejecutiva: el periodo ${data.overview.period} concentra ${compactMoney(data.overview.totalNetWin)} de NetWin con retencion de ${pct(data.overview.retention)} sobre ${data.overview.activeMachines} maquinas activas.
+  return `Observacion ejecutiva: el periodo ${data.overview.period} concentra ${data.overview.totalNetWin} de NetWin con retencion de ${data.overview.retention} sobre ${data.overview.activeMachines} maquinas activas.
 
 Riesgos operativos: revisar ${data.alertSummary.NEGATIVE_NETWIN ?? 0} terminales con NetWin negativo y ${data.alertSummary.PAYOUT_GT_100 ?? 0} casos de payout superior a 100%. El modelo mas debil visible es ${risk?.model ?? "sin dato"}.
 

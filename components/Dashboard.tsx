@@ -218,7 +218,7 @@ function Machines({ data, filters, onSelectModel }: { data: Analytics; filters: 
   const scatter = data.topModels.concat(data.bottomModels).map((row) => ({ x: row.coinIn, y: row.netWin, z: Math.max(row.units * 24, 80), name: row.model }));
   return (
     <>
-      <AiObservations filters={filters} />
+      <AiObservations data={data} />
       <div className="grid layout-equal">
         <div className="card panel"><PanelHead title="Top 10 por NetWin" subtitle="Modelos mensuales" /><RankList rows={data.topModels} onSelect={onSelectModel} /></div>
         <div className="card panel"><PanelHead title="Bottom 10 por NetWin" subtitle="Modelos a revisar" /><RankList rows={data.bottomModels} negative onSelect={onSelectModel} /></div>
@@ -364,17 +364,19 @@ function RankList({ rows, negative = false, onSelect }: { rows: Analytics["topMo
   })}</div>;
 }
 
-function AiObservations({ filters }: { filters: Record<string, string> }) {
+function AiObservations({ data }: { data: Analytics }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState("");
   const run = async () => {
     setLoading(true);
     setError("");
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
     try {
-      const response = await fetch(`/api/ai/observations?${params.toString()}`);
+      const response = await fetch("/api/ai/observations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ summary: aiSummary(data) })
+      });
       const text = await response.text();
       const json = text ? JSON.parse(text) : null;
       if (!response.ok) throw new Error(json.error || "Error IA");
@@ -399,6 +401,44 @@ function AiObservations({ filters }: { filters: Record<string, string> }) {
       {result ? <div className="ai-copy">{result.observation}</div> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones ejecutivas, riesgos y acciones recomendadas.</div>}
     </div>
   );
+}
+
+function aiSummary(data: Analytics) {
+  return {
+    overview: {
+      period: data.overview.period,
+      activeMachines: data.overview.activeMachines,
+      totalCoinIn: compactMoney(data.overview.totalCoinIn),
+      totalNetWin: compactMoney(data.overview.totalNetWin),
+      retention: pct(data.overview.retention),
+      profitPerDay: compactMoney(data.overview.profitPerDay)
+    },
+    alertSummary: data.alertSummary,
+    byCasino: data.byCasino.map((row: any) => ({
+      name: row.name,
+      units: row.units,
+      coinIn: compactMoney(row.coinIn),
+      netWin: compactMoney(row.netWin),
+      retention: pct(row.retention),
+      netWinPerMachineDay: money(row.netWinPerMachineDay)
+    })),
+    topModels: data.topModels.slice(0, 10).map((row: any) => ({
+      model: row.model,
+      casino: row.casino.name,
+      area: row.area,
+      units: row.units,
+      netWin: money(row.netWin),
+      retention: pct(row.retention)
+    })),
+    bottomModels: data.bottomModels.slice(0, 10).map((row: any) => ({
+      model: row.model,
+      casino: row.casino.name,
+      area: row.area,
+      units: row.units,
+      netWin: money(row.netWin),
+      retention: pct(row.retention)
+    }))
+  };
 }
 
 function MachineDetailModal({ filters, model, onClose }: { filters: Record<string, string>; model: any; onClose: () => void }) {
