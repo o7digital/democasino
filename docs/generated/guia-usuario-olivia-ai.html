@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Guía de Usuario - Keptos Casino Analytics</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #1a1a1a;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+      background: white;
+    }
+    h1, h2, h3 { margin: 0; line-height: 1.15; }
+    h1 { font-size: 30px; letter-spacing: -0.01em; }
+    h2 { font-size: 19px; margin-bottom: 10px; color: #c00021; }
+    h3 { font-size: 14px; margin: 12px 0 5px; }
+    p { margin: 0 0 8px; }
+    ul { margin: 6px 0 0 18px; padding: 0; }
+    li { margin: 3px 0; }
+    .cover {
+      min-height: 250mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border-left: 8px solid #c00021;
+      padding-left: 28px;
+    }
+    .cover .eyebrow, .eyebrow {
+      color: #c00021;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 11px;
+    }
+    .subtitle { color: #68707a; font-size: 16px; margin-top: 10px; max-width: 580px; }
+    .meta { margin-top: 24px; color: #68707a; }
+    .page { page-break-before: always; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0; }
+    .card {
+      border: 1px solid #e3e3e3;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fafafa;
+    }
+    .card strong { display: block; color: #111; margin-bottom: 4px; }
+    .screen {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin: 10px 0 12px;
+      display: block;
+    }
+    .note {
+      border-left: 4px solid #c00021;
+      background: #fff5f6;
+      padding: 10px 12px;
+      margin: 10px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .steps { counter-reset: step; list-style: none; margin-left: 0; }
+    .steps li { counter-increment: step; margin: 8px 0; padding-left: 28px; position: relative; }
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      background: #c00021;
+      color: white;
+      display: inline-grid;
+      place-items: center;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .footer {
+      margin-top: 18px;
+      color: #68707a;
+      font-size: 10px;
+      border-top: 1px solid #e3e3e3;
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="eyebrow">Keptos Casino Analytics</div>
+    <h1>Guía de Usuario</h1>
+    <p class="subtitle">Manual operativo para navegar el dashboard, consultar detalles de máquinas, exportar reportes y usar Olivia AI para observaciones automáticas.</p>
+    <p class="meta">Versión: Julio 2026<br />Idioma: Español<br />Producto: Casino Performance Center</p>
+  </section>
+
+  <section class="page">
+    <h2>1. Visión general</h2>
+    <p>Keptos Casino Analytics centraliza los datos importados desde Excel para evaluar desempeño financiero, operación diaria, modelos de máquinas, fabricantes y salas.</p>
+    <div class="grid">
+      <div class="card"><strong>Resumen ejecutivo</strong>Vista consolidada de Coin In, NetWin, retención, jugadas, ganancia diaria y máquinas activas.</div>
+      <div class="card"><strong>Performance máquinas</strong>Ranking Top/Bottom por modelo, dispersión Coin In vs NetWin y detalle por terminal.</div>
+      <div class="card"><strong>Análisis fabricantes</strong>Comparativo de marcas por NetWin, parque instalado, eficiencia y retención.</div>
+      <div class="card"><strong>Comparativo casinos</strong>Benchmark entre salas para revisar brechas de volumen, retención y ganancia.</div>
+      <div class="card"><strong>Operación diaria</strong>Tabla de terminales, alertas, búsqueda y exportación CSV/XLSX.</div>
+      <div class="card"><strong>Olivia AI</strong>Observaciones automáticas por pantalla con riesgos y acciones recomendadas.</div>
+    </div>
+    <div class="note">Los filtros de periodo, casino, área y fabricante afectan los KPIs, tablas, exportaciones y observaciones de Olivia AI.</div>
+  </section>
+
+  <section class="page">
+    <h2>2. Navegación y controles comunes</h2>
+    <h3>Menú lateral</h3>
+    <p>Use el menú de la izquierda para cambiar entre los módulos analíticos y administrativos.</p>
+    <h3>Filtros</h3>
+    <ul>
+      <li><strong>Periodo:</strong> selecciona el periodo mensual disponible.</li>
+      <li><strong>Casino:</strong> filtra una sala específica o muestra todas.</li>
+      <li><strong>Área:</strong> separa Fumadores, No Fumadores u otras zonas importadas.</li>
+      <li><strong>Fabricante:</strong> limita el análisis a una marca.</li>
+    </ul>
+    <h3>Acciones superiores</h3>
+    <ul>
+      <li><strong>Importar Excel:</strong> carga reportes mensuales o diarios cuando el usuario tiene permiso.</li>
+      <li><strong>Exportar PDF:</strong> genera un reporte ejecutivo en PDF con los filtros actuales.</li>
+      <li><strong>Datos al día:</strong> confirma que la vista usa la información importada disponible.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>3. Performance por Máquina</h2>
+    <img class="screen" src="../user-guide-assets/performance-maquinas.png" alt="Pantalla Performance por Máquina" />
+    <p>Esta pantalla permite identificar los modelos con mejor y peor rendimiento mensual.</p>
+    <h3>Funciones principales</h3>
+    <ul>
+      <li>Top 10 y Bottom 10 por NetWin.</li>
+      <li>Dispersión Coin In vs NetWin para comparar modelos.</li>
+      <li>Distribución de retención por rangos.</li>
+      <li>Olivia AI para observaciones específicas de desempeño por modelo.</li>
+    </ul>
+    <h3>Detalle por máquina</h3>
+    <ol class="steps">
+      <li>Haga clic en el nombre de un modelo dentro del Top 10 o Bottom 10.</li>
+      <li>Revise la ventana de detalle con unidades, Coin In, NetWin, jugadas y periodo.</li>
+      <li>Consulte cada terminal: ID planta, juego instalado, isla, posición, fechas, payout y alerta.</li>
+    </ol>
+  </section>
+
+  <section class="page">
+    <h2>4. Análisis por Fabricante</h2>
+    <img class="screen" src="../user-guide-assets/analisis-fabricantes.png" alt="Pantalla Análisis por Fabricante" />
+    <p>Permite revisar el aporte de cada marca al resultado total y comparar eficiencia operativa.</p>
+    <h3>Indicadores destacados</h3>
+    <ul>
+      <li><strong>Líder NetWin:</strong> fabricante con mayor generación neta.</li>
+      <li><strong>Mayor parque:</strong> fabricante con más unidades instaladas.</li>
+      <li><strong>Mayor retención:</strong> mejor retención ponderada.</li>
+      <li><strong>Marcas activas:</strong> cantidad de fabricantes presentes.</li>
+    </ul>
+    <h3>Uso recomendado</h3>
+    <p>Use Olivia AI para detectar concentración de ingresos, dependencia de marcas líderes y fabricantes con baja eficiencia por terminal.</p>
+  </section>
+
+  <section class="page">
+    <h2>5. Comparativo Multi-Casino</h2>
+    <img class="screen" src="../user-guide-assets/comparativo-casinos.png" alt="Pantalla Comparativo Multi-Casino" />
+    <p>Presenta un benchmark entre salas para identificar brechas de volumen, rentabilidad y eficiencia.</p>
+    <h3>Qué revisar</h3>
+    <ul>
+      <li>Coin In total por sala.</li>
+      <li>NetWin total y NetWin por máquina por día.</li>
+      <li>Retención de cada sala.</li>
+      <li>Ganancia diaria promedio.</li>
+      <li>Rendimiento por área.</li>
+    </ul>
+    <div class="note">Olivia AI puede convertir estas diferencias en recomendaciones operativas para balancear parque, áreas y promociones.</div>
+  </section>
+
+  <section class="page">
+    <h2>6. Operación Diaria por Terminal</h2>
+    <img class="screen" src="../user-guide-assets/operacion-diaria.png" alt="Pantalla Operación Diaria" />
+    <p>Esta pantalla baja al detalle diario de cada terminal y muestra alertas automáticas.</p>
+    <h3>Funciones principales</h3>
+    <ul>
+      <li>KPIs de terminales activas, terminales OK, payout superior a 100% y NetWin negativo.</li>
+      <li>Búsqueda por ID, juego, modelo o fabricante.</li>
+      <li>Exportación de la tabla en CSV o XLSX.</li>
+      <li>Alertas visuales en filas con pérdidas o payout anormal.</li>
+    </ul>
+    <h3>Uso recomendado</h3>
+    <p>Filtre por casino, área o fabricante, revise las primeras alertas y use Olivia AI para priorizar auditorías o ajustes semanales.</p>
+  </section>
+
+  <section class="page">
+    <h2>7. Olivia AI</h2>
+    <p>Olivia AI es el módulo de observaciones automáticas disponible en cada pantalla analítica. El botón <strong>Analizar</strong> toma los datos visibles y genera:</p>
+    <ul>
+      <li>Observación específica de la pantalla activa.</li>
+      <li>Riesgos operativos principales.</li>
+      <li>Acciones recomendadas para la siguiente semana.</li>
+    </ul>
+    <h3>Comportamiento por pantalla</h3>
+    <div class="grid">
+      <div class="card"><strong>Resumen ejecutivo</strong>Sintetiza salud financiera, retención y volumen general.</div>
+      <div class="card"><strong>Performance máquinas</strong>Compara modelos líderes y modelos a revisar.</div>
+      <div class="card"><strong>Fabricantes</strong>Analiza concentración, eficiencia y parque instalado por marca.</div>
+      <div class="card"><strong>Casinos</strong>Detecta brechas entre salas y áreas.</div>
+      <div class="card"><strong>Operación diaria</strong>Prioriza alertas de payout y NetWin negativo.</div>
+      <div class="card"><strong>Modo respaldo</strong>Si el servicio IA externo no responde, Olivia AI genera una observación local con reglas del dashboard.</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>8. Exportaciones e importaciones</h2>
+    <h3>Exportar PDF</h3>
+    <p>Use el botón rojo <strong>Exportar PDF</strong> para descargar el reporte ejecutivo. El PDF respeta los filtros aplicados en la vista.</p>
+    <h3>Exportar operación diaria</h3>
+    <p>En Operación diaria, use <strong>CSV</strong> o <strong>XLSX</strong> para descargar la tabla de terminales filtrada.</p>
+    <h3>Importar Excel</h3>
+    <p>El módulo Importar archivos permite cargar reportes Excel. La aplicación valida duplicados, recalcula KPIs y actualiza las vistas.</p>
+    <div class="footer">Keptos Casino Analytics - Guía de Usuario - Julio 2026</div>
+  </section>
+</body>
+</html>

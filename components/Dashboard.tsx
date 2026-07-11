@@ -395,14 +395,14 @@ function AiObservations({ data, active }: { data: Analytics; active: string }) {
     <div className="card panel ai-panel">
       <div className="ai-head">
         <div>
-          <div className="eyebrow">Hugging Face</div>
+          <div className="eyebrow">Olivia AI</div>
           <h3 className="panel-title">Observacion IA</h3>
           <div className="panel-sub">Analisis automatico de esta pantalla con los filtros actuales.</div>
         </div>
         <button className="action primary" onClick={run} disabled={loading}><Brain size={16} />{loading ? "Analizando..." : "Analizar"}</button>
       </div>
       {error ? <div className="alert-box red"><div className="alert-ico">!</div><div className="alert-copy"><strong>Error de IA</strong><span>{error}</span></div></div> : null}
-      {result ? <><div className="ai-copy">{result.observation}</div>{result.source === "fallback" ? <div className="panel-sub">Hugging Face no respondio; observacion generada con reglas locales.</div> : null}</> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones, riesgos y acciones recomendadas para esta vista.</div>}
+      {result ? <><div className="ai-copy">{result.observation}</div>{result.source === "fallback" ? <div className="panel-sub">Olivia AI genero una observacion con reglas locales.</div> : null}</> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones, riesgos y acciones recomendadas para esta vista.</div>}
     </div>
   );
 }
