@@ -9,55 +9,67 @@ export const maxDuration = 45;
 const MODEL = process.env.HUGGINGFACE_MODEL || "mistralai/Mistral-7B-Instruct-v0.3";
 
 export async function GET(request: NextRequest) {
-  const user = await currentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  try {
+    const user = await currentUser();
+    if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const token = process.env.HUGGINGFACE_API_TOKEN;
-  if (!token) {
-    return NextResponse.json({ error: "Falta HUGGINGFACE_API_TOKEN en variables de entorno" }, { status: 500 });
-  }
+    const token = process.env.HUGGINGFACE_API_TOKEN;
+    if (!token) {
+      return NextResponse.json({ error: "Falta HUGGINGFACE_API_TOKEN en variables de entorno" }, { status: 500 });
+    }
 
-  const params = request.nextUrl.searchParams;
-  const data = await getAnalytics({
-    period: params.get("period") || undefined,
-    casinoId: params.get("casinoId") || undefined,
-    area: params.get("area") || undefined,
-    manufacturer: params.get("manufacturer") || undefined,
-    search: params.get("search") || undefined,
-    user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
-  });
+    const params = request.nextUrl.searchParams;
+    const data = await getAnalytics({
+      period: params.get("period") || undefined,
+      casinoId: params.get("casinoId") || undefined,
+      area: params.get("area") || undefined,
+      manufacturer: params.get("manufacturer") || undefined,
+      search: params.get("search") || undefined,
+      user: { role: user.role, casinoIds: user.casinoIds, casinoCodes: user.casinoCodes }
+    });
 
-  const prompt = buildPrompt(data);
-  const response = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 420,
-        temperature: 0.25,
-        return_full_text: false
+    const prompt = buildPrompt(data);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35_000);
+    const response = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
       },
-      options: { wait_for_model: true }
-    })
-  });
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 260,
+          temperature: 0.2,
+          return_full_text: false
+        },
+        options: { wait_for_model: true }
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
+    const text = await response.text();
+    const payload = parseJson(text);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: payload?.error || text || "Hugging Face no devolvio una observacion valida" },
+        { status: response.status }
+      );
+    }
+
+    const observation = extractText(payload) || text.trim();
+    return NextResponse.json({
+      model: MODEL,
+      generatedAt: new Date().toISOString(),
+      observation: observation || fallbackObservation(data)
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: payload?.error || "Hugging Face no devolvio una observacion valida" },
-      { status: response.status }
+      { error: error instanceof Error ? error.message : "Error interno durante el analisis IA" },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    model: MODEL,
-    generatedAt: new Date().toISOString(),
-    observation: extractText(payload)
-  });
 }
 
 function buildPrompt(data: Awaited<ReturnType<typeof getAnalytics>>) {
@@ -109,5 +121,23 @@ function extractText(payload: unknown) {
   if (payload && typeof payload === "object" && "generated_text" in payload) {
     return String((payload as { generated_text: unknown }).generated_text).trim();
   }
-  return "Sin observacion generada.";
+  return "";
+}
+
+function parseJson(text: string) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function fallbackObservation(data: Awaited<ReturnType<typeof getAnalytics>>) {
+  const leader = data.topModels[0];
+  const risk = data.bottomModels[0];
+  return `Observacion ejecutiva: el periodo ${data.overview.period} concentra ${compactMoney(data.overview.totalNetWin)} de NetWin con retencion de ${pct(data.overview.retention)} sobre ${data.overview.activeMachines} maquinas activas.
+
+Riesgos operativos: revisar ${data.alertSummary.NEGATIVE_NETWIN ?? 0} terminales con NetWin negativo y ${data.alertSummary.PAYOUT_GT_100 ?? 0} casos de payout superior a 100%. El modelo mas debil visible es ${risk?.model ?? "sin dato"}.
+
+Acciones recomendadas: mantener exposicion de ${leader?.model ?? "los modelos lideres"}, auditar los modelos bottom por sala y validar configuracion/juego instalado de las terminales con alerta antes del siguiente cierre.`;
 }

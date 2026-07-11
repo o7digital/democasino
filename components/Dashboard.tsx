@@ -140,7 +140,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
           <div className="page-foot"><span>Keptos · Casino Analytics</span><span>Usuario: {user.name} · {user.role}</span></div>
         </main>
       </section>
-      {selectedModel ? <MachineDetailModal data={data} model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
+      {selectedModel ? <MachineDetailModal filters={filters} model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>
   );
@@ -375,7 +375,8 @@ function AiObservations({ filters }: { filters: Record<string, string> }) {
     Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
     try {
       const response = await fetch(`/api/ai/observations?${params.toString()}`);
-      const json = await response.json();
+      const text = await response.text();
+      const json = text ? JSON.parse(text) : null;
       if (!response.ok) throw new Error(json.error || "Error IA");
       setResult(json);
     } catch (err) {
@@ -400,12 +401,26 @@ function AiObservations({ filters }: { filters: Record<string, string> }) {
   );
 }
 
-function MachineDetailModal({ data, model, onClose }: { data: Analytics; model: any; onClose: () => void }) {
-  const rows = data.daily.filter((row: any) =>
-    row.terminalName === model.model &&
-    row.casinoId === model.casinoId &&
-    (!model.area || row.area === model.area)
-  );
+function MachineDetailModal({ filters, model, onClose }: { filters: Record<string, string>; model: any; onClose: () => void }) {
+  const [detail, setDetail] = useState<any | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams({ model: model.model });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    if (model.casinoId) params.set("casinoId", model.casinoId);
+    if (model.area) params.set("area", model.area);
+    setDetail(null);
+    setError("");
+    fetch(`/api/machines/detail?${params.toString()}`)
+      .then(async (response) => {
+        const text = await response.text();
+        const json = text ? JSON.parse(text) : null;
+        if (!response.ok) throw new Error(json?.error || "No se pudo cargar el detalle");
+        setDetail(json);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "No se pudo cargar el detalle"));
+  }, [filters, model]);
+  const rows = detail?.rows ?? [];
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <section className="modal" onClick={(event) => event.stopPropagation()}>
@@ -424,13 +439,14 @@ function MachineDetailModal({ data, model, onClose }: { data: Analytics; model: 
           <Kpi label="Jugadas" value={model.plays.toLocaleString("es-MX")} meta="Periodo mensual" />
         </div>
         <div className="detail-strip">
-          <span><Clock size={14} /> Periodo diario: {rows[0] ? `${dateLabel(rows[0].startedAt)} - ${dateLabel(rows[0].endedAt)}` : "Sin detalle diario importado"}</span>
-          <span>{rows.length} terminales encontradas</span>
+          <span><Clock size={14} /> Periodo diario: {!detail ? "Cargando..." : rows[0] ? `${dateLabel(rows[0].startedAt)} - ${dateLabel(rows[0].endedAt)}` : "Sin detalle diario importado"}</span>
+          <span>{!detail ? "Cargando terminales..." : `${rows.length} terminales encontradas`}</span>
         </div>
+        {error ? <div className="alert-box red"><div className="alert-ico">!</div><div className="alert-copy"><strong>Error de detalle</strong><span>{error}</span></div></div> : null}
         <div className="table-wrap">
           <table className="data-table">
             <thead><tr><th>ID planta</th><th>Juego instalado</th><th>Isla</th><th>Posicion</th><th>Desde</th><th>Hasta</th><th>Coin In</th><th>NetWin</th><th>Payout</th><th>Jugadas</th><th>Alerta</th></tr></thead>
-            <tbody>{rows.map((row: any) => <tr key={row.id}><td className="model">{row.plantId}</td><td>{row.game}</td><td>{row.island ?? "-"}</td><td>{row.position ?? "-"}</td><td>{dateLabel(row.startedAt)}</td><td>{dateLabel(row.endedAt)}</td><td>{money(row.coinIn)}</td><td className={row.netWin < 0 ? "money neg" : "money pos"}>{money(row.netWin)}</td><td>{pct(row.payout)}</td><td>{row.plays.toLocaleString("es-MX")}</td><td>{row.alerts[0]?.label ?? "OK"}</td></tr>)}</tbody>
+            <tbody>{!detail ? <tr><td colSpan={11}>Cargando detalle...</td></tr> : rows.length ? rows.map((row: any) => <tr key={row.id}><td className="model">{row.plantId}</td><td>{row.game}</td><td>{row.island ?? "-"}</td><td>{row.position ?? "-"}</td><td>{dateLabel(row.startedAt)}</td><td>{dateLabel(row.endedAt)}</td><td>{money(row.coinIn)}</td><td className={row.netWin < 0 ? "money neg" : "money pos"}>{money(row.netWin)}</td><td>{pct(row.payout)}</td><td>{row.plays.toLocaleString("es-MX")}</td><td>{row.alerts[0]?.label ?? "OK"}</td></tr>) : <tr><td colSpan={11}>No hay terminales diarias importadas para este modelo y periodo.</td></tr>}</tbody>
           </table>
         </div>
       </section>

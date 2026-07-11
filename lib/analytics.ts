@@ -149,6 +149,58 @@ export async function getTerminalExportRows(filters: AnalyticsFilters = {}) {
   }));
 }
 
+export async function getMachineDetailRows(filters: AnalyticsFilters & { model: string }) {
+  const isCasinoManager = filters.user?.role === "CASINO_MANAGER";
+  const casinosFromCodes = isCasinoManager && filters.user?.casinoCodes.length
+    ? await prisma.casino.findMany({
+        where: { code: { in: filters.user.casinoCodes } },
+        select: { id: true }
+      })
+    : [];
+  const accessCasinoIds = isCasinoManager
+    ? [...new Set([...(filters.user?.casinoIds ?? []), ...casinosFromCodes.map((casino) => casino.id)])]
+    : undefined;
+
+  const periods = await prisma.monthlyMetric.findMany({
+    select: { periodLabel: true, periodStart: true },
+    distinct: ["periodLabel"],
+    orderBy: { periodStart: "desc" }
+  });
+  const selectedPeriod = filters.period || periods[0]?.periodLabel;
+
+  const monthlyWhere: Prisma.MonthlyMetricWhereInput = {
+    model: filters.model,
+    ...(selectedPeriod ? { periodLabel: selectedPeriod } : {}),
+    ...(filters.casinoId ? { casinoId: filters.casinoId } : {}),
+    ...(filters.area ? { area: filters.area } : {}),
+    ...(filters.manufacturer ? { manufacturer: filters.manufacturer } : {}),
+    ...(accessCasinoIds !== undefined ? { casinoId: { in: accessCasinoIds } } : {})
+  };
+
+  const monthly = await prisma.monthlyMetric.findFirst({
+    where: monthlyWhere,
+    include: { casino: true },
+    orderBy: { netWin: "desc" }
+  });
+
+  const rows = await prisma.dailyTerminalMetric.findMany({
+    where: {
+      manufacturer: filters.model,
+      ...(monthly?.casinoId || filters.casinoId ? { casinoId: monthly?.casinoId ?? filters.casinoId } : {}),
+      ...(monthly?.area || filters.area ? { area: monthly?.area ?? filters.area } : {}),
+      ...(accessCasinoIds !== undefined ? { casinoId: { in: accessCasinoIds } } : {})
+    },
+    include: { casino: true, alerts: true },
+    orderBy: [{ plantId: "asc" }]
+  });
+
+  return {
+    period: selectedPeriod ?? "Sin periodo",
+    monthly,
+    rows
+  };
+}
+
 function sum<T extends Record<string, unknown>>(rows: T[], key: keyof T): number {
   return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
 }
