@@ -44,9 +44,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Falta resumen de datos para analizar" }, { status: 400 });
     }
 
-    const prompt = buildPrompt(summary);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 35_000);
+    const observation = await generateWithHuggingFace(token, summary);
+    return NextResponse.json({
+      model: MODEL,
+      generatedAt: new Date().toISOString(),
+      source: observation ? "huggingface" : "fallback",
+      observation: observation || fallbackObservation(summary)
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Error interno durante el analisis IA" },
+      { status: 500 }
+    );
+  }
+}
+
+async function generateWithHuggingFace(token: string, summary: AiSummary) {
+  const prompt = buildPrompt(summary);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  try {
     const response = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
       method: "POST",
       headers: {
@@ -63,28 +80,14 @@ export async function POST(request: NextRequest) {
         options: { wait_for_model: true }
       }),
       signal: controller.signal
-    }).finally(() => clearTimeout(timeout));
-
-    const text = await response.text();
-    const payload = parseJson(text);
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: payload?.error || text || "Hugging Face no devolvio una observacion valida" },
-        { status: response.status }
-      );
-    }
-
-    const observation = extractText(payload) || text.trim();
-    return NextResponse.json({
-      model: MODEL,
-      generatedAt: new Date().toISOString(),
-      observation: observation || fallbackObservation(summary)
     });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error interno durante el analisis IA" },
-      { status: 500 }
-    );
+    const text = await response.text();
+    if (!response.ok) return "";
+    return extractText(parseJson(text)) || text.trim();
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

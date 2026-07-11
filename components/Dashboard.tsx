@@ -398,7 +398,7 @@ function AiObservations({ data }: { data: Analytics }) {
         <button className="action primary" onClick={run} disabled={loading}><Brain size={16} />{loading ? "Analizando..." : "Analizar"}</button>
       </div>
       {error ? <div className="alert-box red"><div className="alert-ico">!</div><div className="alert-copy"><strong>Error de IA</strong><span>{error}</span></div></div> : null}
-      {result ? <div className="ai-copy">{result.observation}</div> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones ejecutivas, riesgos y acciones recomendadas.</div>}
+      {result ? <><div className="ai-copy">{result.observation}</div>{result.source === "fallback" ? <div className="panel-sub">Hugging Face no respondio; observacion generada con reglas locales.</div> : null}</> : <div className="ai-copy muted">Pulsa Analizar para generar observaciones ejecutivas, riesgos y acciones recomendadas.</div>}
     </div>
   );
 }
