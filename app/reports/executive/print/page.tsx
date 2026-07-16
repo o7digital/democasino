@@ -27,7 +27,7 @@ export default async function ExecutivePrintPage({
           <h2>Reporte Ejecutivo</h2>
           <p>Cliente: Keptos · Periodo: {data.overview.period} · Generado: {generatedAt}</p>
         </div>
-        <img className="keptos-logo" src="/keptos-logo.webp" alt="Keptos IT Services" />
+        <img className="keptos-logo" src="/keptos-logo-transparent.png" alt="Keptos IT Services" />
       </section>
       <div className="grid kpis">
         <Kpi label="NetWin total" value={compactMoney(data.overview.totalNetWin)} />

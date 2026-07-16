@@ -5,7 +5,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="clerk-login-shell">
         <div className="login-brand">
-          <img className="keptos-logo login-logo" src="/keptos-logo.webp" alt="Keptos IT Services" />
+          <img className="keptos-logo login-logo" src="/keptos-logo-transparent.png" alt="Keptos IT Services" />
           <div>
             <h1>Casino Analytics</h1>
             <p>Acceso al centro de performance de casinos.</p>

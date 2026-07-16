@@ -77,7 +77,7 @@ export function Dashboard({ user }: { user: { name: string; role: string } }) {
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="brand">
-          <img className="keptos-logo" src="/keptos-logo.webp" alt="Keptos IT Services" />
+          <img className="keptos-logo" src="/keptos-logo-transparent.png" alt="Keptos IT Services" />
           <div>
             <span>Casino Performance Center</span>
           </div>
